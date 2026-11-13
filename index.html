@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظومة تحويل المستندات الذكية | PDF إلى Word</title>
+    
+    <!-- استدعاء Tailwind CSS للتصميم الحديث -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- استدعاء خط Cairo الرسمي للغة العربية -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- استدعاء مكتبة PDF.js لمعالجة ملفات PDF محلياً في المتصفح -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
+    <!-- أيقونات FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Cairo', 'sans-serif'],
+                    },
+                    colors: {
+                        mwri: {
+                            dark: '#0f2942',
+                            primary: '#1a4977',
+                            secondary: '#2b6cb0',
+                            accent: '#0284c7',
+                            light: '#f0f7ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #f4f7f9;
+        }
+        /* تخصيص شريط التمرير */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .drop-zone-active {
+            border-color: #0284c7 !important;
+            background-color: #e0f2fe !important;
+        }
+    </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+    <!-- الشريط العلوي الرسمي -->
+    <header class="bg-mwri-dark text-white shadow-lg border-b-4 border-mwri-accent">
+        <div class="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div class="bg-white/10 p-3 rounded-xl border border-white/20">
+                    <i class="fa-solid fa-file-word text-3xl text-sky-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-wide">منظومة تحويل المستندات الرقمية (PDF → Word)</h1>
+                    <p class="text-xs md:text-sm text-sky-200">أداة معالجة محلية آمنة لدعم القرار وإعداد التقارير الفنية</p>
+                </div>
+            </div>
+            
+            <!-- شارة الأمان والسرية -->
+            <div class="flex items-center gap-2 bg-emerald-900/60 border border-emerald-500/40 px-4 py-2 rounded-full text-xs md:text-sm text-emerald-200">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                <span>معالجة محلية 100% داخل جهازك - سرية تامة للمستندات</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- المحتوى الرئيسي -->
+    <main class="container mx-auto px-4 py-6 flex-grow">
+        
+        <!-- منطقة الإشعارات والرسائل -->
+        <div id="alertBox" class="hidden mb-6 p-4 rounded-xl border flex items-center justify-between shadow-sm transition-all">
+            <div class="flex items-center gap-3">
+                <i id="alertIcon" class="text-xl"></i>
+                <span id="alertMessage" class="font-semibold text-sm md:text-base"></span>
+            </div>
+            <button onclick="hideAlert()" class="text-slate-500 hover:text-slate-800 p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <!-- الشبكة الرئيسية -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- العمود الأيمن: رفع الملف والإعدادات (4 أعمدة) -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- بطاقة رفع الملف -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-bold text-mwri-dark mb-4 flex items-center gap-2 border-b pb-3">
+                        <i class="fa-solid fa-cloud-arrow-up text-mwri-accent"></i>
+                        <span>1. اختيار مستند PDF</span>
+                    </h2>
+
+                    <!-- منطقة السحب والإفلات -->
+                    <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center cursor-pointer hover:border-mwri-accent hover:bg-mwri-light/50 transition-all">
+                        <input type="file" id="pdfInput" accept="application/pdf" class="hidden">
+                        <div class="bg-sky-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 text-mwri-accent">
+                            <i class="fa-solid fa-file-pdf text-3xl"></i>
+                        </div>
+                        <p class="font-bold text-slate-700 mb-1">اسحب ملف الـ PDF وأفلته هنا</p>
+                        <p class="text-xs text-slate-500 mb-4">أو اضغط لاختيار الملف من جهازك</p>
+                        <button type="button" onclick="document.getElementById('pdfInput').click()" class="bg-mwri-primary hover:bg-mwri-dark text-white text-sm font-semibold px-5 py-2.5 rounded-lg shadow transition-colors">
+                            استعراض الملفات
+                        </button>
+                    </div>
+
+                    <!-- معلومات الملف المختار -->
+                    <div id="fileInfoCard" class="hidden mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-3 overflow-hidden">
+                                <i class="fa-solid fa-file-lines text-2xl text-red-600 shrink-0"></i>
+                                <div class="truncate">
+                                    <p id="fileName" class="font-bold text-sm text-slate-800 truncate">اسم_الملف.pdf</p>
+                                    <p id="fileSize" class="text-xs text-slate-500">0 KB</p>
+                                </div>
+                            </div>
+                            <button onclick="resetApp()" title="إزالة الملف" class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- بطاقة خيارات التحويل -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-lg font-bold text-mwri-dark mb-4 flex items-center gap-2 border-b pb-3">
+                        <i class="fa-solid fa-sliders text-mwri-accent"></i>
+                        <span>2. إعدادات التحويل الذكي</span>
+                    </h2>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">نوع المعالجة المطلوبة:</label>
+                            <div class="space-y-2">
+                                <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border-mwri-accent bg-sky-50/40">
+                                    <input type="radio" name="conversionMode" value="text" checked class="mt-1 text-mwri-accent focus:ring-mwri-accent">
+                                    <div>
+                                        <span class="block font-bold text-sm text-slate-800">استخراج النصوص (قابل للتعديل)</span>
+                                        <span class="block text-xs text-slate-500">مناسب للتقارير والمذكرات المكتوبة رقمياً لتعديلها في Word.</span>
+                                    </div>
+                                </label>
+
+                                <label class="flex items-start gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                                    <input type="radio" name="conversionMode" value="image" class="mt-1 text-mwri-accent focus:ring-mwri-accent">
+                                    <div>
+                                        <span class="block font-bold text-sm text-slate-800">حفظ التنسيق والأختام (صفحات مصورة)</span>
+                                        <span class="block text-xs text-slate-500">مناسب للملفات الممسوحة ضوئياً (Scanner) والمخاطبات المختومة.</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="pt-2">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" id="pageBreaksCheck" checked class="rounded text-mwri-accent focus:ring-mwri-accent">
+                                <span class="text-sm font-semibold text-slate-700">إضافة فاصل صفحات مطابق للأصل</span>
+                            </label>
+                        </div>
+
+                        <button id="convertBtn" onclick="processPDF()" disabled class="w-full bg-mwri-accent hover:bg-sky-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                            <span>بدء التحويل الآن</span>
+                        </button>
+                    </div>
+
+                    <!-- شريط التقدم -->
+                    <div id="progressContainer" class="hidden mt-5">
+                        <div class="flex justify-between text-xs font-bold text-slate-600 mb-1">
+                            <span id="progressText">جاري تحليل الصفحات...</span>
+                            <span id="progressPercent">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                            <div id="progressBar" class="bg-mwri-accent h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- بطاقة مؤشرات الأداء والإحصائيات -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h2 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">إحصائيات المستند</h2>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                            <span class="block text-xs text-slate-500">عدد الصفحات</span>
+                            <span id="statPages" class="text-xl font-extrabold text-mwri-dark">0</span>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                            <span class="block text-xs text-slate-500">عدد الكلمات</span>
+                            <span id="statWords" class="text-xl font-extrabold text-mwri-accent">0</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- العمود الأيسر: منطقة المعاينة والتحرير والتصدير (8 أعمدة) -->
+            <div class="lg:col-span-8 flex flex-col">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex-grow flex flex-col">
+                    
+                    <!-- شريط أدوات المحرر والتصدير -->
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 mb-4">
+                        <div>
+                            <h2 class="text-lg font-bold text-mwri-dark flex items-center gap-2">
+                                <i class="fa-solid fa-pen-to-square text-mwri-accent"></i>
+                                <span>3. المعاينة والتعديل قبل التصدير</span>
+                            </h2>
+                            <p class="text-xs text-slate-500">يمكنك تعديل النص المستخرج مباشرة هنا قبل تحميل ملف Word</p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                            <button id="copyBtn" onclick="copyContent()" disabled class="flex-1 sm:flex-none bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-sm px-3.5 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                                <i class="fa-regular fa-copy"></i>
+                                <span>نسخ النص</span>
+                            </button>
+
+                            <button id="printBtn" onclick="printContent()" disabled class="flex-1 sm:flex-none bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-sm px-3.5 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-print"></i>
+                                <span>طباعة</span>
+                            </button>
+
+                            <button id="downloadWordBtn" onclick="exportToWord()" disabled class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm px-5 py-2.5 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-file-word text-lg"></i>
+                                <span>تحميل ملف Word (.doc)</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- منطقة العمل / المحرر -->
+                    <div class="relative flex-grow flex flex-col min-h-[500px]">
+                        
+                        <!-- شاشة الترحيب الافتراضية قبل رفع ملف -->
+                        <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
+                            <div class="bg-white p-4 rounded-full shadow-sm mb-4">
+                                <i class="fa-solid fa-file-signature text-4xl text-slate-300"></i>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-600 mb-1">مساحة العمل جاهزة</h3>
+                            <p class="text-sm text-slate-400 max-w-md">قم برفع ملف PDF من القائمة الجانبية واضغط على "بدء التحويل" ليظهر المحتوى هنا جاهزاً للتعديل والتصدير.</p>
+                        </div>
+
+                        <!-- محرر النصوص القابل للتعديل (ContentEditable) -->
+                        <div id="editorContainer" dir="rtl" contenteditable="true" class="hidden flex-grow w-full p-6 md:p-8 bg-white border border-slate-300 rounded-xl shadow-inner focus:outline-none focus:border-mwri-accent overflow-y-auto max-h-[650px] leading-relaxed text-base text-slate-900" style="font-family: 'Times New Roman', 'Cairo', serif;">
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- التذييل -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="container mx-auto px-4 text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <span>تم التطوير لدعم التحول الرقمي وأتمتة الأعمال الهندسية والإدارية</span>
+            <span>يعمل بدون اتصال بالإنترنت لحماية سرية البيانات الحكومية</span>
+        </div>
+    </footer>
+
+    <!-- الكود البرمجي (JavaScript) -->
+    <script>
+        // تهيئة مسار Worker الخاص بمكتبة PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // المتغيرات العامة
+        let selectedFile = null;
+        let originalFileName = "مستند_محول";
+        let currentConversionMode = "text";
+
+        // عناصر الواجهة
+        const dropZone = document.getElementById('dropZone');
+        const pdfInput = document.getElementById('pdfInput');
+        const fileInfoCard = document.getElementById('fileInfoCard');
+        const fileNameEl = document.getElementById('fileName');
+        const fileSizeEl = document.getElementById('fileSize');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const progressPercent = document.getElementById('progressPercent');
+        const emptyState = document.getElementById('emptyState');
+        const editorContainer = document.getElementById('editorContainer');
+        const downloadWordBtn = document.getElementById('downloadWordBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const printBtn = document.getElementById('printBtn');
+        const statPages = document.getElementById('statPages');
+        const statWords = document.getElementById('statWords');
+
+        // دالة عرض التنبيهات للمستخدم
+        function showAlert(message, type = 'info') {
+            const alertBox = document.getElementById('alertBox');
+            const alertIcon = document.getElementById('alertIcon');
+            const alertMessage = document.getElementById('alertMessage');
+
+            alertBox.className = 'mb-6 p-4 rounded-xl border flex items-center justify-between shadow-sm transition-all ';
+            
+            if (type === 'success') {
+                alertBox.classList.add('bg-emerald-50', 'border-emerald-300', 'text-emerald-800');
+                alertIcon.className = 'fa-solid fa-circle-check text-xl text-emerald-600';
+            } else if (type === 'error') {
+                alertBox.classList.add('bg-red-50', 'border-red-300', 'text-red-800');
+                alertIcon.className = 'fa-solid fa-triangle-exclamation text-xl text-red-600';
+            } else {
+                alertBox.classList.add('bg-sky-50', 'border-sky-300', 'text-sky-800');
+                alertIcon.className = 'fa-solid fa-circle-info text-xl text-sky-600';
+            }
+
+            alertMessage.textContent = message;
+            alertBox.classList.remove('hidden');
+        }
+
+        function hideAlert() {
+            document.getElementById('alertBox').classList.add('hidden');
+        }
+
+        // أحداث السحب والإفلات (Drag & Drop)
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drop-zone-active');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drop-zone-active');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+            if (e.dataTransfer.files.length > 0) {
+                handleFileSelection(e.dataTransfer.files[0]);
+            }
+        });
+
+        pdfInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        // معالجة اختيار الملف
+        function handleFileSelection(file) {
+            hideAlert();
+            if (file.type !== 'application/pdf') {
+                showAlert('عذراً، يرجى اختيار ملف بصيغة PDF فقط.', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            originalFileName = file.name.replace(/\.pdf$/i, '');
+            
+            fileNameEl.textContent = file.name;
+            fileSizeEl.textContent = formatFileSize(file.size);
+            
+            fileInfoCard.classList.remove('hidden');
+            convertBtn.disabled = false;
+            showAlert('تم تحميل الملف بنجاح. اختر وضع التحويل المناسب واضغط على "بدء التحويل الآن".', 'info');
+        }
+
+        // تنسيق حجم الملف
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // إعادة تعيين التطبيق
+        function resetApp() {
+            selectedFile = null;
+            pdfInput.value = '';
+            fileInfoCard.classList.add('hidden');
+            convertBtn.disabled = true;
+            progressContainer.classList.add('hidden');
+            editorContainer.innerHTML = '';
+            editorContainer.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            downloadWordBtn.disabled = true;
+            copyBtn.disabled = true;
+            printBtn.disabled = true;
+            statPages.textContent = '0';
+            statWords.textContent = '0';
+            hideAlert();
+        }
+
+        // الدالة الرئيسية لمعالجة وتحويل ملف الـ PDF
+        async function processPDF() {
+            if (!selectedFile) return;
+
+            hideAlert();
+            convertBtn.disabled = true;
+            progressContainer.classList.remove('hidden');
+            updateProgress(5, 'جاري قراءة بنية الملف...');
+
+            currentConversionMode = document.querySelector('input[name="conversionMode"]:checked').value;
+            const addPageBreaks = document.getElementById('pageBreaksCheck').checked;
+
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const totalPages = pdf.numPages;
+                statPages.textContent = totalPages;
+
+                let compiledHTML = '';
+                let totalWordsCount = 0;
+                let hasExtractedAnyText = false;
+
+                for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+                    const percent = Math.round((pageNum / totalPages) * 90);
+                    updateProgress(percent, `جاري معالجة صفحة ${pageNum} من ${totalPages}...`);
+
+                    const page = await pdf.getPage(pageNum);
+
+                    if (currentConversionMode === 'text') {
+                        // وضع استخراج النصوص الذكي
+                        const textContent = await page.getTextContent();
+                        const pageTextHTML = reconstructArabicParagraphs(textContent.items);
+                        
+                        if (pageTextHTML.trim().length > 0) {
+                            hasExtractedAnyText = true;
+                        }
+
+                        // حساب الكلمات
+                        const plainText = pageTextHTML.replace(/<[^>]*>?/gm, ' ');
+                        const words = plainText.trim().split(/\s+/).filter(w => w.length > 0);
+                        totalWordsCount += words.length;
+
+                        compiledHTML += `<div class="pdf-page-block" style="margin-bottom: 20px;">`;
+                        compiledHTML += pageTextHTML || `<p style="color:#94a3b8; font-style:italic;">[صفحة ${pageNum} فارغة أو تحتوي على صور فقط]</p>`;
+                        compiledHTML += `</div>`;
+
+                    } else {
+                        // وضع حفظ التنسيق والأختام (تحويل الصفحة إلى صورة عالية الدقة داخل الوورد)
+                        const viewport = page.getViewport({ scale: 1.8 });
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        await page.render({ canvasContext: context, viewport: viewport }).promise;
+                        const imgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+                        compiledHTML += `<div class="pdf-page-block" style="text-align: center; margin-bottom: 15px;">`;
+                        compiledHTML += `<img src="${imgDataUrl}" style="max-width: 100%; height: auto; border: 1px solid #e2e8f0;" />`;
+                        compiledHTML += `</div>`;
+                    }
+
+                    // إضافة فاصل صفحات بين الصفحات
+                    if (addPageBreaks && pageNum < totalPages) {
+                        compiledHTML += `<br clear="all" style="page-break-before:always; mso-break-type:section-break" />`;
+                        compiledHTML += `<hr style="border: 0; border-top: 1px dashed #cbd5e1; margin: 20px 0;" />`;
+                    }
+                }
+
+                updateProgress(100, 'اكتملت المعالجة بنجاح!');
+
+                // عرض النتيجة في المحرر
+                emptyState.classList.add('hidden');
+                editorContainer.classList.remove('hidden');
+                editorContainer.innerHTML = compiledHTML;
+
+                statWords.textContent = currentConversionMode === 'text' ? totalWordsCount : 'صورة';
+
+                // تفعيل أزرار التصدير
+                downloadWordBtn.disabled = false;
+                copyBtn.disabled = (currentConversionMode !== 'text');
+                printBtn.disabled = false;
+                convertBtn.disabled = false;
+
+                // تنبيه ذكي إذا كان الملف عبارة عن سكانر وتم اختيار الوضع النصي
+                if (currentConversionMode === 'text' && !hasExtractedAnyText) {
+                    showAlert('تنبيه: يبدو أن هذا الملف عبارة عن مستند ممسوح ضوئياً (Scanner/صور) ولا يحتوي على نصوص رقمية. يُنصح باختيار وضع "حفظ التنسيق والأختام" وإعادة التحويل.', 'error');
+                } else {
+                    showAlert('تم تحويل المستند بنجاح! يمكنك مراجعة النص وتعديله في المحرر ثم الضغط على "تحميل ملف Word".', 'success');
+                }
+
+            } catch (error) {
+                console.error(error);
+                showAlert('حدث خطأ أثناء معالجة ملف الـ PDF. تأكد من أن الملف غير محمي بكلمة مرور أو تالف.', 'error');
+                convertBtn.disabled = false;
+            }
+        }
+
+        // خوارزمية ذكية لتجميع الأسطر والفقرات العربية من عناصر PDF.js بناءً على الإحداثيات
+        function reconstructArabicParagraphs(items) {
+            if (!items || items.length === 0) return '';
+
+            // تجميع العناصر حسب الإحداثي الرأسي (Y) لتكوين الأسطر
+            const linesMap = [];
+            const tolerance = 5; // هامش تسامح لاختلاف الارتفاع الطفيف في نفس السطر
+
+            items.forEach(item => {
+                if (!item.str || item.str.trim() === '') return;
+                
+                const y = item.transform[5];
+                const x = item.transform[4];
+                const fontSize = Math.abs(item.transform[0]) || 12;
+
+                let foundLine = linesMap.find(line => Math.abs(line.y - y) <= tolerance);
+                if (!foundLine) {
+                    foundLine = { y: y, items: [], maxFontSize: fontSize };
+                    linesMap.push(foundLine);
+                }
+                foundLine.items.push({ str: item.str, x: x, width: item.width });
+                if (fontSize > foundLine.maxFontSize) {
+                    foundLine.maxFontSize = fontSize;
+                }
+            });
+
+            // ترتيب الأسطر من الأعلى إلى الأسفل (في PDF الإحداثي Y يزداد للأعلى)
+            linesMap.sort((a, b) => b.y - a.y);
+
+            let htmlOutput = '';
+
+            linesMap.forEach(line => {
+                // تحديد ما إذا كان السطر عربياً أم إنجليزياً لترتيب الكلمات أفقياً بشكل صحيح
+                const sampleText = line.items.map(i => i.str).join('');
+                const isArabic = /[\u0600-\u06FF]/.test(sampleText);
+
+                if (isArabic) {
+                    // ترتيب من اليمين إلى اليسار (X الأكبر أولاً)
+                    line.items.sort((a, b) => b.x - a.x);
+                } else {
+                    // ترتيب من اليسار إلى اليمين
+                    line.items.sort((a, b) => a.x - b.x);
+                }
+
+                // دمج الكلمات في السطر الواحد
+                let lineText = line.items.map(i => i.str).join(' ').replace(/\s+/g, ' ').trim();
+                
+                // تنسيق العناوين الكبيرة بشكل مميز
+                if (line.maxFontSize >= 16) {
+                    htmlOutput += `<h3 dir="rtl" style="font-size: 16pt; font-weight: bold; margin-bottom: 8px; text-align: right;">${escapeHTML(lineText)}</h3>`;
+                } else {
+                    htmlOutput += `<p dir="rtl" style="font-size: 13pt; margin-bottom: 6px; text-align: right; line-height: 1.6;">${escapeHTML(lineText)}</p>`;
+                }
+            });
+
+            return htmlOutput;
+        }
+
+        // حماية النصوص من أكواد HTML الضارة
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag])
+            );
+        }
+
+        // تحديث شريط التقدم
+        function updateProgress(percent, text) {
+            progressBar.style.width = percent + '%';
+            progressPercent.textContent = percent + '%';
+            progressText.textContent = text;
+        }
+
+        // تحديث عدد الكلمات تلقائياً عند قيام المستخدم بالتعديل اليدوي داخل المحرر
+        editorContainer.addEventListener('input', () => {
+            if (currentConversionMode === 'text') {
+                const text = editorContainer.innerText || '';
+                const words = text.trim().split(/\s+/).filter(w => w.length > 0);
+                statWords.textContent = words.length;
+            }
+        });
+
+        // دالة نسخ النص إلى الحافظة
+        function copyContent() {
+            const range = document.createRange();
+            range.selectNode(editorContainer);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            try {
+                document.execCommand('copy');
+                showAlert('تم نسخ محتوى المستند إلى الحافظة بنجاح.', 'success');
+            } catch (err) {
+                showAlert('تعذر النسخ التلقائي، يرجى التحديد والضغط على Ctrl+C.', 'error');
+            }
+            window.getSelection().removeAllRanges();
+        }
+
+        // دالة الطباعة المباشرة
+        function printContent() {
+            const printWindow = window.open('', '_blank');
+            printWindow.document.write(`
+                <html dir="rtl" lang="ar">
+                <head>
+                    <title>طباعة - ${originalFileName}</title>
+                    <style>
+                        body { font-family: 'Times New Roman', Arial, sans-serif; padding: 20px; direction: rtl; }
+                        img { max-width: 100%; }
+                        hr { display: none; }
+                    </style>
+                </head>
+                <body>
+                    ${editorContainer.innerHTML}
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 500);
+        }
+
+        // دالة تصدير المحتوى إلى ملف Microsoft Word حقيقي (.doc) مع ضبط إعدادات RTL
+        function exportToWord() {
+            try {
+                // تنظيف الفواصل الوهمية للمعاينة واستبدالها بفواصل صفحات وورد حقيقية
+                let contentToExport = editorContainer.innerHTML;
+                contentToExport = contentToExport.replace(/<hr[^>]*>/gi, '');
+
+                // بناء هيكل مستند Word XML/HTML القياسي لضمان فتحه بتنسيق عربي سليم في MS Word
+                const wordHeader = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                          xmlns:w='urn:schemas-microsoft-com:office:word' 
+                          xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head>
+                        <meta charset='utf-8'>
+                        <title>${originalFileName}</title>
+                        <!--[if gte mso 9]>
+                        <xml>
+                            <w:WordDocument>
+                                <w:View>Print</w:View>
+                                <w:Zoom>100</w:Zoom>
+                                <w:DoNotOptimizeForBrowser/>
+                            </w:WordDocument>
+                        </xml>
+                        <![endif]-->
+                        <style>
+                            @page Section1 {
+                                size: 21.0cm 29.7cm; /* مقاس A4 قياسي */
+                                margin: 2.0cm 2.0cm 2.0cm 2.0cm;
+                                mso-header-margin: 1.27cm;
+                                mso-footer-margin: 1.27cm;
+                                mso-paper-source: 0;
+                            }
+                            div.Section1 {
+                                page: Section1;
+                                direction: rtl;
+                                text-align: right;
+                            }
+                            body {
+                                font-family: 'Traditional Arabic', 'Times New Roman', Arial, sans-serif;
+                                direction: rtl;
+                                text-align: right;
+                            }
+                            p, h1, h2, h3, div {
+                                direction: rtl;
+                                unicode-bidi: embed;
+                            }
+                        </style>
+                    </head>
+                    <body lang="AR-EG" dir="RTL">
+                        <div class="Section1" dir="RTL">
+                            ${contentToExport}
+                        </div>
+                    </body>
+                    </html>
+                `;
+
+                // إضافة BOM (\ufeff) لضمان قراءة الحروف العربية بدون أي تشويه (Encoding UTF-8)
+                const blob = new Blob(['\ufeff', wordHeader], {
+                    type: 'application/msword;charset=utf-8'
+                });
+
+                const url = URL.createObjectURL(blob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `${originalFileName}_محول.doc`;
+                
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+
+                showAlert(`تم تصدير وتحميل الملف "${originalFileName}_محول.doc" بنجاح!`, 'success');
+            } catch (error) {
+                console.error(error);
+                showAlert('حدث خطأ أثناء تصدير ملف Word.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
